@@ -2,11 +2,6 @@ using Showroom.Api.Models;
 
 namespace Showroom.Api.Services;
 
-/// <summary>
-/// All vehicle business rules in one place. Used by VehicleService for create and update,
-/// so the unit tests exercise exactly the rules the API applies.
-/// Keys are camelCase to match the JSON field names in the 400 response.
-/// </summary>
 public static class VehicleValidator
 {
     public const int MinYear = 1990;
@@ -15,7 +10,7 @@ public static class VehicleValidator
     public const decimal MaxPrice = 10_000_000m;
     public const int MaxMileage = 2_000_000;
 
-    public static int MaxYear => DateTime.UtcNow.Year + 1;   // next year's models are already sold
+    public static int MaxYear => DateTime.UtcNow.Year + 1;
 
     public static Dictionary<string, string[]> Validate(
         Brand? brand, string? model, int? year, decimal? price, string? color, int? mileage)

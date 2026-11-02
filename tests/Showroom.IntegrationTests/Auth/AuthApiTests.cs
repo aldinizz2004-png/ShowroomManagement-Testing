@@ -8,7 +8,6 @@ using Showroom.IntegrationTests.Infrastructure;
 
 namespace Showroom.IntegrationTests.Auth;
 
-/// <summary>Authentication through HTTP: register, login, and using the returned token.</summary>
 public class AuthApiTests : IClassFixture<ShowroomApiFactory>
 {
     private readonly ShowroomApiFactory _factory;
@@ -60,7 +59,7 @@ public class AuthApiTests : IClassFixture<ShowroomApiFactory>
         // Arrange
         var email = $"buyer-{Guid.NewGuid():N}@test.local";
 
-        // Act: register, then log in with the new account
+        // Act
         var register = await _client.PostAsJsonAsync("/api/auth/register",
             new RegisterRequest { FullName = "New Buyer", Email = email, Password = "Buyer@12345" });
         var login = await _client.PostAsJsonAsync("/api/auth/login",

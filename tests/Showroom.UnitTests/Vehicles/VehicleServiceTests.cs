@@ -8,11 +8,6 @@ using static Showroom.UnitTests.Vehicles.VehicleTestData;
 
 namespace Showroom.UnitTests.Vehicles;
 
-/// <summary>
-/// Unit tests for VehicleService. The repository is a Moq fake, so no database is involved:
-/// we control what "the database" returns (Setup) and check what the service asked it to do (Verify).
-/// xUnit creates a new instance of this class for every test, so each test gets a fresh mock.
-/// </summary>
 public class VehicleServiceTests
 {
     private readonly Mock<IVehicleRepository> _repository = new();
@@ -23,8 +18,6 @@ public class VehicleServiceTests
         _service = new VehicleService(_repository.Object);
     }
 
-    // ====================== Create ======================
-
     [Fact]
     public async Task CreateAsync_ValidRequest_SavesVehicleAsAvailableAndReturnsIt()
     {
@@ -32,7 +25,7 @@ public class VehicleServiceTests
         var request = ValidCreateRequest();
         Vehicle? saved = null;
         _repository.Setup(r => r.AddAsync(It.IsAny<Vehicle>(), It.IsAny<CancellationToken>()))
-                   .Callback<Vehicle, CancellationToken>((v, _) => saved = v)   // capture what was saved
+                   .Callback<Vehicle, CancellationToken>((v, _) => saved = v)
                    .Returns(Task.CompletedTask);
 
         // Act
@@ -112,7 +105,7 @@ public class VehicleServiceTests
         // Assert
         Assert.False(result.Succeeded);
         Assert.Equal(ServiceErrorType.Validation, result.ErrorType);
-        Assert.Equal(field, Assert.Single(result.Errors.Keys));   // only the missing field is reported
+        Assert.Equal(field, Assert.Single(result.Errors.Keys));
         _repository.Verify(r => r.AddAsync(It.IsAny<Vehicle>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -130,9 +123,9 @@ public class VehicleServiceTests
     }
 
     [Theory]
-    [InlineData(1989)]                 // older than the minimum
-    [InlineData(99)]                   // not a four-digit year
-    [InlineData(3000)]                 // far in the future
+    [InlineData(1989)]
+    [InlineData(99)]
+    [InlineData(3000)]
     public async Task CreateAsync_InvalidManufacturingYear_ReturnsValidationError(int year)
     {
         var request = ValidCreateRequest();
@@ -182,7 +175,7 @@ public class VehicleServiceTests
     public async Task CreateAsync_UnknownBrandValue_ReturnsValidationError()
     {
         var request = ValidCreateRequest();
-        request.Brand = (Brand)99;    // e.g. a client sends the number 99
+        request.Brand = (Brand)99;
 
         var result = await _service.CreateAsync(request);
 
@@ -201,8 +194,6 @@ public class VehicleServiceTests
         Assert.Contains("model", result.Errors.Keys);
         Assert.Contains("price", result.Errors.Keys);
     }
-
-    // ====================== Get by id ======================
 
     [Fact]
     public async Task GetByIdAsync_ExistingId_ReturnsVehicle()
@@ -223,7 +214,7 @@ public class VehicleServiceTests
     [Fact]
     public async Task GetByIdAsync_NonExistentId_ReturnsNotFound()
     {
-        // Arrange: the repository finds nothing
+        // Arrange
         _repository.Setup(r => r.GetByIdAsync(404, It.IsAny<CancellationToken>()))
                    .ReturnsAsync((Vehicle?)null);
 
@@ -234,8 +225,6 @@ public class VehicleServiceTests
         Assert.Equal(ServiceErrorType.NotFound, result.ErrorType);
         Assert.Null(result.Value);
     }
-
-    // ====================== Get all / filter ======================
 
     [Fact]
     public async Task GetAllAsync_PassesFilterToRepositoryAndMapsResults()
@@ -257,7 +246,7 @@ public class VehicleServiceTests
     [Fact]
     public async Task GetAllAsync_SearchForUnavailableOrNonExistentVehicle_ReturnsEmptyList()
     {
-        // Arrange: e.g. ?brand=OMODA&model=Unknown&status=Available matches nothing
+        // Arrange
         var filter = new VehicleQuery { Brand = Brand.OMODA, Model = "Unknown", Status = AvailabilityStatus.Available };
         _repository.Setup(r => r.GetAllAsync(filter, It.IsAny<CancellationToken>()))
                    .ReturnsAsync([]);
@@ -265,11 +254,9 @@ public class VehicleServiceTests
         // Act
         var result = await _service.GetAllAsync(filter);
 
-        // Assert: an empty search is a valid answer, not an error
+        // Assert
         Assert.Empty(result);
     }
-
-    // ====================== Update ======================
 
     [Fact]
     public async Task UpdateAsync_ExistingVehicle_UpdatesFieldsButKeepsStatusAndCreatedAt()
@@ -287,8 +274,8 @@ public class VehicleServiceTests
         Assert.Equal(Brand.OMODA, result.Value!.Brand);
         Assert.Equal("C5", result.Value.Model);
         Assert.Equal(120_000m, result.Value.Price);
-        Assert.Equal(AvailabilityStatus.Reserved, result.Value.AvailabilityStatus);   // unchanged
-        Assert.Equal(createdAt, result.Value.CreatedAt);                               // unchanged
+        Assert.Equal(AvailabilityStatus.Reserved, result.Value.AvailabilityStatus);
+        Assert.Equal(createdAt, result.Value.CreatedAt);
         _repository.Verify(r => r.UpdateAsync(existing, It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -316,13 +303,11 @@ public class VehicleServiceTests
         // Act
         var result = await _service.UpdateAsync(1, request);
 
-        // Assert: validation happens before any database call
+        // Assert
         Assert.Equal(ServiceErrorType.Validation, result.ErrorType);
         _repository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         _repository.Verify(r => r.UpdateAsync(It.IsAny<Vehicle>(), It.IsAny<CancellationToken>()), Times.Never);
     }
-
-    // ====================== Update status ======================
 
     [Theory]
     [InlineData(AvailabilityStatus.Available, AvailabilityStatus.Reserved)]
@@ -377,8 +362,6 @@ public class VehicleServiceTests
 
         Assert.Equal(ServiceErrorType.NotFound, result.ErrorType);
     }
-
-    // ====================== Delete ======================
 
     [Fact]
     public async Task DeleteAsync_ExistingId_DeletesVehicle()

@@ -5,7 +5,6 @@ using Showroom.Api.Models;
 
 namespace Showroom.UnitTests.Auth;
 
-/// <summary>Checks that the JWT contains the right identity, role and lifetime.</summary>
 public class TokenServiceTests
 {
     private readonly TokenService _service = new(Options.Create(new JwtOptions
@@ -40,7 +39,7 @@ public class TokenServiceTests
         var (token, expiresAt) = _service.CreateToken(Admin);
         var jwt = new JsonWebTokenHandler().ReadJsonWebToken(token);
 
-        // Assert (allow a few seconds for test execution)
+        // Assert
         Assert.InRange(expiresAt, DateTime.UtcNow.AddMinutes(29), DateTime.UtcNow.AddMinutes(31));
         Assert.InRange(jwt.ValidTo, expiresAt.AddSeconds(-2), expiresAt.AddSeconds(2));
     }

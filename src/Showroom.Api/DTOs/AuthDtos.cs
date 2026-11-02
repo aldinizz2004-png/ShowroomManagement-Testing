@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Showroom.Api.DTOs;
 
-/// <summary>POST /api/auth/register - public sign-up always creates a Customer.</summary>
 public class RegisterRequest
 {
     [Required, StringLength(100, MinimumLength = 2)]
@@ -15,7 +14,6 @@ public class RegisterRequest
     public string? Password { get; set; }
 }
 
-/// <summary>POST /api/auth/login</summary>
 public class LoginRequest
 {
     [Required, EmailAddress]

@@ -3,14 +3,10 @@ namespace Showroom.Api.Common;
 public enum ServiceErrorType
 {
     None,
-    Validation,   // -> 400
-    NotFound      // -> 404
+    Validation,
+    NotFound
 }
 
-/// <summary>
-/// Outcome of a service call: either a value, or why it failed.
-/// The service never knows about HTTP; the controller maps the error type to a status code.
-/// </summary>
 public class ServiceResult<T>
 {
     public bool Succeeded => ErrorType == ServiceErrorType.None;

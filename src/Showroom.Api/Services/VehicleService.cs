@@ -5,10 +5,6 @@ using Showroom.Api.Repositories;
 
 namespace Showroom.Api.Services;
 
-/// <summary>
-/// Vehicle business logic. Depends only on IVehicleRepository (no EF Core, no HTTP),
-/// so it can be unit-tested with a mocked repository.
-/// </summary>
 public class VehicleService : IVehicleService
 {
     private readonly IVehicleRepository _repository;
@@ -21,7 +17,7 @@ public class VehicleService : IVehicleService
     public async Task<IReadOnlyList<VehicleResponse>> GetAllAsync(VehicleQuery filter, CancellationToken ct = default)
     {
         var vehicles = await _repository.GetAllAsync(filter, ct);
-        return vehicles.Select(ToResponse).ToList();   // no match -> empty list (200), not an error
+        return vehicles.Select(ToResponse).ToList();
     }
 
     public async Task<ServiceResult<VehicleResponse>> GetByIdAsync(int id, CancellationToken ct = default)
@@ -34,13 +30,11 @@ public class VehicleService : IVehicleService
 
     public async Task<ServiceResult<VehicleResponse>> CreateAsync(CreateVehicleRequest request, CancellationToken ct = default)
     {
-        // 1) Validate first: invalid data never reaches the database
         var errors = VehicleValidator.Validate(request.Brand, request.Model, request.ManufacturingYear,
                                                request.Price, request.Color, request.Mileage);
         if (errors.Count > 0)
             return ServiceResult<VehicleResponse>.Invalid(errors);
 
-        // 2) Map and save. A new vehicle is always Available.
         var vehicle = new Vehicle
         {
             Brand = request.Brand!.Value,
@@ -74,7 +68,6 @@ public class VehicleService : IVehicleService
         vehicle.Price = request.Price!.Value;
         vehicle.Color = request.Color!.Trim();
         vehicle.Mileage = request.Mileage!.Value;
-        // Status and CreatedAt are not changed here (status has its own endpoint)
 
         await _repository.UpdateAsync(vehicle, ct);
         return ServiceResult<VehicleResponse>.Ok(ToResponse(vehicle));
@@ -89,7 +82,6 @@ public class VehicleService : IVehicleService
         if (vehicle is null)
             return NotFound(id);
 
-        // Business rule: a sale is final
         if (vehicle.AvailabilityStatus == AvailabilityStatus.Sold && request.Status != AvailabilityStatus.Sold)
             return ServiceResult<VehicleResponse>.Invalid("status", "A sold vehicle cannot change its status.");
 
@@ -111,7 +103,6 @@ public class VehicleService : IVehicleService
     private static ServiceResult<VehicleResponse> NotFound(int id) =>
         ServiceResult<VehicleResponse>.NotFound($"No vehicle exists with id {id}.");
 
-    // The only place an entity becomes a response
     public static VehicleResponse ToResponse(Vehicle v) => new()
     {
         Id = v.Id,

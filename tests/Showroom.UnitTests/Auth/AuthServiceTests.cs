@@ -9,10 +9,6 @@ using Showroom.Api.Services;
 
 namespace Showroom.UnitTests.Auth;
 
-/// <summary>
-/// Authentication tests for AuthService. The user repository and the token service are mocked;
-/// the real PasswordHasher is used, because hashing is exactly the behaviour we want to trust.
-/// </summary>
 public class AuthServiceTests
 {
     private readonly Mock<IUserRepository> _users = new();
@@ -33,8 +29,6 @@ public class AuthServiceTests
         user.PasswordHash = _hasher.HashPassword(user, password);
         return user;
     }
-
-    // ====================== Login ======================
 
     [Fact]
     public async Task LoginAsync_CorrectPassword_ReturnsTokenAndUser()
@@ -92,11 +86,9 @@ public class AuthServiceTests
         // Act
         var result = await _service.LoginAsync(new LoginRequest { Email = "nobody@test.com", Password = "x" });
 
-        // Assert: same result as a wrong password, so attackers cannot tell which emails exist
+        // Assert
         Assert.Null(result);
     }
-
-    // ====================== Register ======================
 
     [Fact]
     public async Task RegisterAsync_NewEmail_CreatesCustomerWithHashedPassword()
@@ -116,10 +108,10 @@ public class AuthServiceTests
 
         // Assert
         Assert.True(result.Succeeded);
-        Assert.Equal(Roles.Customer, result.Value!.Role);          // public sign-up is always a Customer
+        Assert.Equal(Roles.Customer, result.Value!.Role);
         Assert.Equal("new@test.com", saved!.Email);
         Assert.Equal("Ahmad Khalil", saved.FullName);
-        Assert.NotEqual("Strong@123", saved.PasswordHash);          // never stored as plain text
+        Assert.NotEqual("Strong@123", saved.PasswordHash);
         Assert.Equal(PasswordVerificationResult.Success,
                      _hasher.VerifyHashedPassword(saved, saved.PasswordHash, "Strong@123"));
     }

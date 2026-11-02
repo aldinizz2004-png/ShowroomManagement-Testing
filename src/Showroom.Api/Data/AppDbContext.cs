@@ -31,7 +31,6 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Vehicle>(entity =>
         {
-            // The database rejects invalid data too, even if it is written from outside the API
             entity.ToTable("Vehicles", t =>
             {
                 t.HasCheckConstraint("CK_Vehicles_Price_Positive", "[Price] > 0");
@@ -41,7 +40,6 @@ public class AppDbContext : DbContext
 
             entity.HasKey(v => v.Id);
 
-            // Enums stored as text ("Chery", "Available") - readable in the database
             entity.Property(v => v.Brand)
                   .HasConversion<string>()
                   .HasMaxLength(20)
@@ -54,13 +52,11 @@ public class AppDbContext : DbContext
 
             entity.Property(v => v.Model).HasMaxLength(50).IsRequired();
             entity.Property(v => v.Color).HasMaxLength(30).IsRequired();
-            entity.Property(v => v.Price).HasPrecision(18, 2);   // NIS
+            entity.Property(v => v.Price).HasPrecision(18, 2);
 
-            // Always UTC when read back, so JSON ends with "Z"
             entity.Property(v => v.CreatedAt)
                   .HasConversion(v => v, v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
 
-            // Filtering by brand + model, and by status
             entity.HasIndex(v => new { v.Brand, v.Model });
             entity.HasIndex(v => v.AvailabilityStatus);
         });

@@ -5,7 +5,6 @@ using Showroom.Api.Models;
 
 namespace Showroom.Api.Repositories;
 
-/// <summary>EF Core implementation of IVehicleRepository. No business rules here - only queries and saves.</summary>
 public class VehicleRepository : IVehicleRepository
 {
     private readonly AppDbContext _db;
@@ -15,7 +14,6 @@ public class VehicleRepository : IVehicleRepository
         _db = db;
     }
 
-    // Tracked, so the service can change it and call UpdateAsync
     public Task<Vehicle?> GetByIdAsync(int id, CancellationToken ct = default) =>
         _db.Vehicles.FirstOrDefaultAsync(v => v.Id == id, ct);
 
@@ -29,7 +27,7 @@ public class VehicleRepository : IVehicleRepository
         if (!string.IsNullOrWhiteSpace(filter.Model))
         {
             var pattern = $"%{filter.Model.Trim()}%";
-            query = query.Where(v => EF.Functions.Like(v.Model, pattern));   // "tiggo" matches "Tiggo 8 Pro"
+            query = query.Where(v => EF.Functions.Like(v.Model, pattern));
         }
 
         if (filter.Status is { } status)

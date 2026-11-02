@@ -5,11 +5,6 @@ using Showroom.Api.Auth;
 
 namespace Showroom.UnitTests.Auth;
 
-/// <summary>
-/// Authorization tests without HTTP: the real policies (Policies.AddShowroomPolicies, the same
-/// method Program.cs uses) are evaluated for users with different roles.
-/// The HTTP side (401 / 403 responses) is covered by the integration tests.
-/// </summary>
 public class AuthorizationPolicyTests
 {
     private readonly IAuthorizationService _authorization;
@@ -53,7 +48,7 @@ public class AuthorizationPolicyTests
     [Fact]
     public async Task FallbackPolicy_RejectsAnonymousUser()
     {
-        // Arrange: no authentication type = not signed in
+        // Arrange
         var anonymous = new ClaimsPrincipal(new ClaimsIdentity());
         var options = new AuthorizationOptions().AddShowroomPolicies();
 

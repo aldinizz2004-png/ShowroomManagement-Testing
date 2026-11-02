@@ -5,14 +5,6 @@ using Showroom.Api.Models;
 
 namespace Showroom.Api.Data;
 
-/// <summary>
-/// Prepares the database at startup:
-///   Database:Initialization = "Migrate"       -> apply EF Core migrations (SQL Server, development)
-///                           = "EnsureCreated" -> create the schema from the model (SQLite test database)
-///                           = "None"          -> do nothing (default; run "dotnet ef database update" yourself)
-/// Then creates the staff accounts listed in the "SeedUsers" section, if they do not exist yet.
-/// Public registration only creates Customers, so Admin / SalesRep accounts come from here.
-/// </summary>
 public static class DbInitializer
 {
     public static async Task InitializeAsync(IServiceProvider services)

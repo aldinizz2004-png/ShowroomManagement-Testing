@@ -18,7 +18,6 @@ public class AuthController : ControllerBase
         _auth = auth;
     }
 
-    /// POST api/auth/register - creates a Customer account
     [HttpPost("register")]
     [ProducesResponseType(typeof(UserResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
@@ -36,7 +35,6 @@ public class AuthController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, result.Value);
     }
 
-    /// POST api/auth/login - returns a JWT
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]

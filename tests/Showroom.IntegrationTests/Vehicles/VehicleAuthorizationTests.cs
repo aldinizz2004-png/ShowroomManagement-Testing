@@ -9,12 +9,6 @@ using static Showroom.IntegrationTests.Infrastructure.TestJson;
 
 namespace Showroom.IntegrationTests.Vehicles;
 
-/// <summary>
-/// Authentication (401) and authorization (403) through the real ASP.NET Core pipeline:
-/// JwtBearer middleware + policies + [Authorize] attributes.
-///   401 = no / invalid token (who are you?)
-///   403 = valid token, wrong role (you are not allowed)
-/// </summary>
 public class VehicleAuthorizationTests : IClassFixture<ShowroomApiFactory>
 {
     private readonly ShowroomApiFactory _factory;
@@ -23,8 +17,6 @@ public class VehicleAuthorizationTests : IClassFixture<ShowroomApiFactory>
     {
         _factory = factory;
     }
-
-    // ====================== 401: not authenticated ======================
 
     [Theory]
     [InlineData("GET", "/api/vehicles")]
@@ -52,7 +44,7 @@ public class VehicleAuthorizationTests : IClassFixture<ShowroomApiFactory>
     [Fact]
     public async Task GetVehicles_WithTamperedToken_Returns401()
     {
-        // Arrange: take a real Customer token and change its signature
+        // Arrange
         var customer = await _factory.CreateClientForRoleAsync(Roles.Customer);
         var token = customer.DefaultRequestHeaders.Authorization!.Parameter!;
         var client = _factory.CreateAnonymousClient();
@@ -64,8 +56,6 @@ public class VehicleAuthorizationTests : IClassFixture<ShowroomApiFactory>
         // Assert
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
-
-    // ====================== Customer: read only ======================
 
     [Fact]
     public async Task Customer_CanListAndViewVehicles()
@@ -122,8 +112,6 @@ public class VehicleAuthorizationTests : IClassFixture<ShowroomApiFactory>
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/vehicles/{vehicle.Id}")).StatusCode);
     }
 
-    // ====================== Sales Representative ======================
-
     [Fact]
     public async Task SalesRep_CanAddUpdateAndChangeStatus()
     {
@@ -153,8 +141,6 @@ public class VehicleAuthorizationTests : IClassFixture<ShowroomApiFactory>
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
-
-    // ====================== Admin ======================
 
     [Fact]
     public async Task Admin_CanDeleteVehicle_Returns204()

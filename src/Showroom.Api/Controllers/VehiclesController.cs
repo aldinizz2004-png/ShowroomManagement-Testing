@@ -7,10 +7,6 @@ using Showroom.Api.Services;
 
 namespace Showroom.Api.Controllers;
 
-/// <summary>
-/// Vehicle inventory. Read: any signed-in user. Add / update / status: Admin or SalesRep. Delete: Admin.
-/// The controller only translates HTTP to service calls and service results to status codes.
-/// </summary>
 [ApiController]
 [Route("api/vehicles")]
 [Authorize]
@@ -25,14 +21,12 @@ public class VehiclesController : ControllerBase
         _service = service;
     }
 
-    /// GET api/vehicles?brand=Chery&amp;model=Tiggo&amp;status=Available
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<VehicleResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<IReadOnlyList<VehicleResponse>>> GetAll([FromQuery] VehicleQuery query, CancellationToken ct) =>
         Ok(await _service.GetAllAsync(query, ct));
 
-    /// GET api/vehicles/5
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(VehicleResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
@@ -43,7 +37,6 @@ public class VehiclesController : ControllerBase
         return ToActionResult(await _service.GetByIdAsync(id, ct));
     }
 
-    /// POST api/vehicles
     [HttpPost]
     [Authorize(Policy = Policies.ManageVehicles)]
     [ProducesResponseType(typeof(VehicleResponse), StatusCodes.Status201Created)]
@@ -57,7 +50,6 @@ public class VehiclesController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
     }
 
-    /// PUT api/vehicles/5
     [HttpPut("{id}")]
     [Authorize(Policy = Policies.ManageVehicles)]
     [ProducesResponseType(typeof(VehicleResponse), StatusCodes.Status200OK)]
@@ -70,7 +62,6 @@ public class VehiclesController : ControllerBase
         return ToActionResult(await _service.UpdateAsync(id, request, ct));
     }
 
-    /// PATCH api/vehicles/5/status   { "status": "Reserved" }
     [HttpPatch("{id}/status")]
     [Authorize(Policy = Policies.ManageVehicles)]
     [ProducesResponseType(typeof(VehicleResponse), StatusCodes.Status200OK)]
@@ -83,7 +74,6 @@ public class VehiclesController : ControllerBase
         return ToActionResult(await _service.UpdateStatusAsync(id, request, ct));
     }
 
-    /// DELETE api/vehicles/5
     [HttpDelete("{id}")]
     [Authorize(Policy = Policies.DeleteVehicles)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -97,8 +87,6 @@ public class VehiclesController : ControllerBase
         var result = await _service.DeleteAsync(id, ct);
         return result.Succeeded ? NoContent() : ToErrorResult(result.ErrorType, result.Errors);
     }
-
-    // ---------- ServiceResult -> HTTP ----------
 
     private ActionResult ToActionResult(ServiceResult<VehicleResponse> result) =>
         result.Succeeded ? Ok(result.Value) : ToErrorResult(result.ErrorType, result.Errors);

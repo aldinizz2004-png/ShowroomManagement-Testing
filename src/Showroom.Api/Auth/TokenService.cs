@@ -12,7 +12,6 @@ public interface ITokenService
     (string Token, DateTime ExpiresAt) CreateToken(User user);
 }
 
-/// <summary>Creates signed JWTs (HMAC-SHA256). The JwtBearer middleware validates them with the same options.</summary>
 public class TokenService : ITokenService
 {
     private readonly JwtOptions _options;

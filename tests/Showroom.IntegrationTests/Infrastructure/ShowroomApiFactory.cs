@@ -14,12 +14,6 @@ using Showroom.Api.DTOs;
 
 namespace Showroom.IntegrationTests.Infrastructure;
 
-/// <summary>
-/// Starts the real API in memory (WebApplicationFactory) with a dedicated test database:
-/// SQLite in-memory instead of SQL Server. The database lives as long as the open connection,
-/// is created from the EF Core model, and is seeded with one user per role.
-/// Everything else (routing, JWT validation, policies, controllers, services) is the production code.
-/// </summary>
 public class ShowroomApiFactory : WebApplicationFactory<Program>
 {
     public const string Password = "Test@12345";
@@ -35,14 +29,13 @@ public class ShowroomApiFactory : WebApplicationFactory<Program>
 
     public ShowroomApiFactory()
     {
-        _connection.Open();   // the in-memory database exists while this connection is open
+        _connection.Open();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
 
-        // Test configuration: JWT settings, schema creation mode, and the seeded users (test-only values)
         builder.ConfigureAppConfiguration((_, config) =>
         {
             var settings = new Dictionary<string, string?>
@@ -65,7 +58,6 @@ public class ShowroomApiFactory : WebApplicationFactory<Program>
             config.AddInMemoryCollection(settings);
         });
 
-        // Swap SQL Server for SQLite in-memory
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<AppDbContext>>();
@@ -74,10 +66,8 @@ public class ShowroomApiFactory : WebApplicationFactory<Program>
         });
     }
 
-    /// <summary>A client with no token (anonymous).</summary>
     public HttpClient CreateAnonymousClient() => CreateClient();
 
-    /// <summary>A client that logged in through POST /api/auth/login as the seeded user of this role.</summary>
     public async Task<HttpClient> CreateClientForRoleAsync(string role)
     {
         if (!_tokens.TryGetValue(role, out var token))

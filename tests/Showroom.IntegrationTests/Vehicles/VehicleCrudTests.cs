@@ -8,11 +8,6 @@ using static Showroom.IntegrationTests.Infrastructure.TestJson;
 
 namespace Showroom.IntegrationTests.Vehicles;
 
-/// <summary>
-/// CRUD and error scenarios through real HTTP requests (as Admin).
-/// IClassFixture: one API + one test database shared by the tests in this class;
-/// every test creates its own vehicles, so the tests do not depend on each other.
-/// </summary>
 public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
 {
     private readonly ShowroomApiFactory _factory;
@@ -23,8 +18,6 @@ public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
     }
 
     private Task<HttpClient> AdminAsync() => _factory.CreateClientForRoleAsync(Roles.Admin);
-
-    // ====================== Create ======================
 
     [Fact]
     public async Task Post_ValidVehicle_Returns201WithLocationAndBody()
@@ -80,8 +73,6 @@ public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    // ====================== Read ======================
-
     [Fact]
     public async Task GetById_ExistingVehicle_Returns200()
     {
@@ -120,14 +111,14 @@ public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
     [Fact]
     public async Task GetAll_FilterByBrandAndModel_ReturnsOnlyMatchingVehicles()
     {
-        // Arrange: a unique model name, so other tests' vehicles do not interfere
+        // Arrange
         var client = await AdminAsync();
         var tag = Guid.NewGuid().ToString("N")[..8];
         await client.CreateVehicleAsync(NewVehicle($"C5 {tag}", Brand.OMODA));
         await client.CreateVehicleAsync(NewVehicle($"C5 X {tag}", Brand.OMODA));
         await client.CreateVehicleAsync(NewVehicle($"J7 {tag}", Brand.JAECOO));
 
-        // Act: model filter is "contains" and case-insensitive
+        // Act
         var response = await client.GetAsync($"/api/vehicles?brand=OMODA&model=c5%20x%20{tag}");
 
         // Assert
@@ -163,8 +154,6 @@ public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
         Assert.Empty(await response.ReadAsync<List<VehicleResponse>>());
     }
 
-    // ====================== Update ======================
-
     [Fact]
     public async Task Put_ExistingVehicle_Returns200AndChangesAreSaved()
     {
@@ -179,7 +168,7 @@ public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
         // Act
         var response = await client.PutAsJsonAsync($"/api/vehicles/{created.Id}", update, Options);
 
-        // Assert: response and a fresh GET both show the new values
+        // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var reloaded = await (await client.GetAsync($"/api/vehicles/{created.Id}")).ReadAsync<VehicleResponse>();
         Assert.Equal("J8", reloaded.Model);
@@ -211,8 +200,6 @@ public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
-
-    // ====================== Status ======================
 
     [Fact]
     public async Task PatchStatus_Reserved_Returns200WithNewStatus()
@@ -251,8 +238,6 @@ public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
-
-    // ====================== Delete ======================
 
     [Fact]
     public async Task Delete_ExistingVehicle_Returns204ThenGetReturns404()

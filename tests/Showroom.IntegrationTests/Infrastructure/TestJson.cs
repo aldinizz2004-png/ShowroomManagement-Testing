@@ -7,7 +7,6 @@ using Showroom.Api.Models;
 
 namespace Showroom.IntegrationTests.Infrastructure;
 
-/// <summary>JSON settings matching the API (camelCase + enums as strings) and small request helpers.</summary>
 public static class TestJson
 {
     public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
@@ -18,7 +17,7 @@ public static class TestJson
     public static CreateVehicleRequest NewVehicle(string? model = null, Brand brand = Brand.Chery, decimal price = 145_000m) => new()
     {
         Brand = brand,
-        Model = model ?? $"Tiggo {Guid.NewGuid():N}"[..20],   // unique, so tests sharing a database do not collide
+        Model = model ?? $"Tiggo {Guid.NewGuid():N}"[..20],
         ManufacturingYear = 2025,
         Price = price,
         Color = "White",

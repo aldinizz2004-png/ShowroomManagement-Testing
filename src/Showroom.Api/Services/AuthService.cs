@@ -37,7 +37,7 @@ public class AuthService : IAuthService
         {
             FullName = request.FullName!.Trim(),
             Email = email,
-            Role = Roles.Customer,                 // nobody can register as Admin or SalesRep
+            Role = Roles.Customer,
             CreatedAt = DateTime.UtcNow
         };
         user.PasswordHash = _hasher.HashPassword(user, request.Password!);
@@ -50,7 +50,6 @@ public class AuthService : IAuthService
     {
         var user = await _users.GetByEmailAsync(Normalize(request.Email!), ct);
 
-        // Same result for "unknown email" and "wrong password", so emails cannot be probed
         if (user is null) return null;
 
         var check = _hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password!);

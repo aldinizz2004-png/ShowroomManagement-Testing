@@ -3,7 +3,6 @@ using Showroom.Api.Models;
 
 namespace Showroom.UnitTests.Vehicles;
 
-/// <summary>Builders for valid test objects. Each test changes only the field it is about.</summary>
 internal static class VehicleTestData
 {
     public static CreateVehicleRequest ValidCreateRequest() => new()
