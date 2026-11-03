@@ -8,4 +8,5 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
     public string Role { get; set; } = Auth.Roles.Customer;
     public DateTime CreatedAt { get; set; }
+    public Customer? Customer { get; set; }
 }
