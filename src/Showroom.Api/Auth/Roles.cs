@@ -19,11 +19,14 @@ public static class Policies
 
     public const string ManageCustomers = "ManageCustomers";
 
+    public const string ManageReservations = "ManageReservations";
+
     public static AuthorizationOptions AddShowroomPolicies(this AuthorizationOptions options)
     {
         options.AddPolicy(ManageVehicles, p => p.RequireRole(Roles.Admin, Roles.SalesRep));
         options.AddPolicy(DeleteVehicles, p => p.RequireRole(Roles.Admin));
         options.AddPolicy(ManageCustomers, p => p.RequireRole(Roles.Admin, Roles.SalesRep));
+        options.AddPolicy(ManageReservations, p => p.RequireRole(Roles.Admin, Roles.SalesRep));
 
         options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
         return options;
