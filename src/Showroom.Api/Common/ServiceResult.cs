@@ -4,7 +4,8 @@ public enum ServiceErrorType
 {
     None,
     Validation,
-    NotFound
+    NotFound,
+    Forbidden
 }
 
 public class ServiceResult<T>
@@ -24,4 +25,7 @@ public class ServiceResult<T>
 
     public static ServiceResult<T> NotFound(string message) =>
         new() { ErrorType = ServiceErrorType.NotFound, Errors = new Dictionary<string, string[]> { ["id"] = [message] } };
+
+    public static ServiceResult<T> Forbidden(string message) =>
+        new() { ErrorType = ServiceErrorType.Forbidden, Errors = new Dictionary<string, string[]> { ["access"] = [message] } };
 }

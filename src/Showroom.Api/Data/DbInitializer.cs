@@ -34,18 +34,30 @@ public static class DbInitializer
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password) || !Roles.All.Contains(role))
                 continue;
 
-            if (await db.Users.AnyAsync(u => u.Email == email))
-                continue;
-
-            var user = new User
+            var user = await db.Users.Include(u => u.Customer).FirstOrDefaultAsync(u => u.Email == email);
+            if (user is null)
             {
-                FullName = seed["FullName"] ?? role!,
-                Email = email,
-                Role = role!,
-                CreatedAt = DateTime.UtcNow
-            };
-            user.PasswordHash = hasher.HashPassword(user, password);
-            db.Users.Add(user);
+                user = new User
+                {
+                    FullName = seed["FullName"] ?? role!,
+                    Email = email,
+                    Role = role!,
+                    CreatedAt = DateTime.UtcNow
+                };
+                user.PasswordHash = hasher.HashPassword(user, password);
+                db.Users.Add(user);
+            }
+
+            if (user.Role == Roles.Customer && user.Customer is null && !await db.Customers.AnyAsync(c => c.Email == email))
+            {
+                user.Customer = new Customer
+                {
+                    FullName = user.FullName,
+                    Email = email,
+                    Phone = seed["Phone"] ?? "0590000000",
+                    CreatedAt = DateTime.UtcNow
+                };
+            }
         }
 
         await db.SaveChangesAsync();

@@ -3,17 +3,16 @@ using Microsoft.AspNetCore.Mvc;
 using Showroom.Api.Auth;
 using Showroom.Api.Common;
 using Showroom.Api.DTOs;
+using Showroom.Api.Models;
 using Showroom.Api.Services;
 
 namespace Showroom.Api.Controllers;
 
-[ApiController]
 [Route("api/vehicles")]
 [Authorize]
-[Produces("application/json")]
-[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-public class VehiclesController : ControllerBase
+public class VehiclesController : ApiControllerBase
 {
+    private const string NotFoundTitle = "Vehicle not found";
     private readonly IVehicleService _service;
 
     public VehiclesController(IVehicleService service)
@@ -21,11 +20,18 @@ public class VehiclesController : ControllerBase
         _service = service;
     }
 
+    private bool IsCustomer => User.IsInRole(Roles.Customer);
+
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<VehicleResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<IReadOnlyList<VehicleResponse>>> GetAll([FromQuery] VehicleQuery query, CancellationToken ct) =>
-        Ok(await _service.GetAllAsync(query, ct));
+    public async Task<ActionResult<IReadOnlyList<VehicleResponse>>> GetAll([FromQuery] VehicleQuery query, CancellationToken ct)
+    {
+        if (IsCustomer)
+            query.Status = AvailabilityStatus.Available;
+
+        return Ok(await _service.GetAllAsync(query, ct));
+    }
 
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(VehicleResponse), StatusCodes.Status200OK)]
@@ -34,7 +40,12 @@ public class VehiclesController : ControllerBase
     public async Task<ActionResult<VehicleResponse>> GetById(int id, CancellationToken ct)
     {
         if (id <= 0) return InvalidId();
-        return ToActionResult(await _service.GetByIdAsync(id, ct));
+
+        var result = await _service.GetByIdAsync(id, ct);
+        if (result.Succeeded && IsCustomer && result.Value!.AvailabilityStatus != AvailabilityStatus.Available)
+            result = ServiceResult<VehicleResponse>.NotFound($"No available vehicle exists with id {id}.");
+
+        return FromResult(result, NotFoundTitle);
     }
 
     [HttpPost]
@@ -45,7 +56,7 @@ public class VehiclesController : ControllerBase
     public async Task<ActionResult<VehicleResponse>> Create(CreateVehicleRequest request, CancellationToken ct)
     {
         var result = await _service.CreateAsync(request, ct);
-        if (!result.Succeeded) return ToActionResult(result);
+        if (!result.Succeeded) return ErrorResult(result, NotFoundTitle);
 
         return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
     }
@@ -59,7 +70,7 @@ public class VehiclesController : ControllerBase
     public async Task<ActionResult<VehicleResponse>> Update(int id, UpdateVehicleRequest request, CancellationToken ct)
     {
         if (id <= 0) return InvalidId();
-        return ToActionResult(await _service.UpdateAsync(id, request, ct));
+        return FromResult(await _service.UpdateAsync(id, request, ct), NotFoundTitle);
     }
 
     [HttpPatch("{id}/status")]
@@ -71,7 +82,7 @@ public class VehiclesController : ControllerBase
     public async Task<ActionResult<VehicleResponse>> UpdateStatus(int id, UpdateVehicleStatusRequest request, CancellationToken ct)
     {
         if (id <= 0) return InvalidId();
-        return ToActionResult(await _service.UpdateStatusAsync(id, request, ct));
+        return FromResult(await _service.UpdateStatusAsync(id, request, ct), NotFoundTitle);
     }
 
     [HttpDelete("{id}")]
@@ -85,27 +96,6 @@ public class VehiclesController : ControllerBase
         if (id <= 0) return InvalidId();
 
         var result = await _service.DeleteAsync(id, ct);
-        return result.Succeeded ? NoContent() : ToErrorResult(result.ErrorType, result.Errors);
-    }
-
-    private ActionResult ToActionResult(ServiceResult<VehicleResponse> result) =>
-        result.Succeeded ? Ok(result.Value) : ToErrorResult(result.ErrorType, result.Errors);
-
-    private ActionResult ToErrorResult(ServiceErrorType type, IReadOnlyDictionary<string, string[]> errors)
-    {
-        if (type == ServiceErrorType.NotFound)
-            return Problem(statusCode: StatusCodes.Status404NotFound, title: "Vehicle not found",
-                           detail: errors.Values.SelectMany(m => m).FirstOrDefault());
-
-        foreach (var (field, messages) in errors)
-            foreach (var message in messages)
-                ModelState.AddModelError(field, message);
-        return ValidationProblem(ModelState);
-    }
-
-    private ActionResult InvalidId()
-    {
-        ModelState.AddModelError("id", "Id must be a positive integer.");
-        return ValidationProblem(ModelState);
+        return result.Succeeded ? NoContent() : ErrorResult(result, NotFoundTitle);
     }
 }

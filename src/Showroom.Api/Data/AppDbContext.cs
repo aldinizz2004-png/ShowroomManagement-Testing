@@ -11,9 +11,30 @@ public class AppDbContext : DbContext
 
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<Customer> Customers => Set<Customer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Customer>(entity =>
+        {
+            entity.ToTable("Customers");
+
+            entity.Property(c => c.FullName).HasMaxLength(100).IsRequired();
+            entity.Property(c => c.Email).HasMaxLength(256).IsRequired();
+            entity.Property(c => c.Phone).HasMaxLength(20).IsRequired();
+            entity.Property(c => c.Address).HasMaxLength(200);
+            entity.Property(c => c.CreatedAt)
+                  .HasConversion(v => v, v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+            entity.HasIndex(c => c.Email).IsUnique();
+            entity.HasIndex(c => c.UserId).IsUnique();
+
+            entity.HasOne(c => c.User)
+                  .WithOne(u => u.Customer)
+                  .HasForeignKey<Customer>(c => c.UserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("Users", t =>
