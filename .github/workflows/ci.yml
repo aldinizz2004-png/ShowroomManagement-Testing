@@ -54,3 +54,101 @@ jobs:
         with:
           name: test-results
           path: TestResults/*.trx
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    permissions:
+      contents: read
+      packages: write
+    env:
+      DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+      JWT_KEY: ${{ secrets.STAGING_JWT_KEY }}
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_PID: Express
+          MSSQL_SA_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+        ports:
+          - 1433:1433
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Check staging secrets
+        run: |
+          if [ -z "$DB_PASSWORD" ] || [ -z "$JWT_KEY" ]; then
+            echo "Missing STAGING_DB_PASSWORD or STAGING_JWT_KEY in the 'staging' environment secrets."
+            exit 1
+          fi
+
+      - name: Set image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/showroom-api" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:staging
+            ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+
+      - name: Wait for staging database
+        run: |
+          for i in $(seq 1 30); do
+            if docker exec ${{ job.services.sqlserver.id }} /opt/mssql-tools18/bin/sqlcmd \
+                 -S localhost -U sa -P "$DB_PASSWORD" -C -Q "SELECT 1" -b > /dev/null 2>&1; then
+              echo "Database is ready"; exit 0
+            fi
+            sleep 3
+          done
+          echo "Database did not start"; exit 1
+
+      - name: Start staging container
+        run: |
+          docker run -d --name showroom-staging --network host \
+            -e ASPNETCORE_ENVIRONMENT=Staging \
+            -e ASPNETCORE_HTTP_PORTS=8080 \
+            -e Database__Initialization=Migrate \
+            -e "ConnectionStrings__Default=Server=localhost,1433;Database=ShowroomStaging;User Id=sa;Password=$DB_PASSWORD;TrustServerCertificate=True" \
+            -e "Jwt__Key=$JWT_KEY" \
+            ${{ steps.image.outputs.name }}:staging
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/health; then echo; break; fi
+            sleep 2
+          done
+          test "$(curl -s http://localhost:8080/health)" = "Healthy"
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/vehicles)
+          echo "GET /api/vehicles without token -> $code"
+          test "$code" = "401"
+
+      - name: Staging logs
+        if: always()
+        run: docker logs showroom-staging || true
+
+      - name: Summary
+        run: |
+          echo "### Deployed to staging" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image: \`${{ steps.image.outputs.name }}:staging\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Health check: Healthy, auth check: 401 without token" >> "$GITHUB_STEP_SUMMARY"
