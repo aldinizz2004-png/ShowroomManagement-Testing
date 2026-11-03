@@ -1,5 +1,4 @@
-# Showroom Management API: Task 1 (Vehicle Inventory & Testing)
-
+# Showroom Management System API
 ProGineer Backend Practical Assignment · **Izzaldeen** · ASP.NET Core (.NET 10) · EF Core 10 · SQL Server · JWT + roles · xUnit · Moq · WebApplicationFactory
 
 Backend REST API for a Palestinian automotive showroom selling **Chery, OMODA and JAECOO**. Task 1 implements the **vehicle inventory module** and tests it with **unit tests** (business logic, mocked repository) and **integration tests** (real HTTP pipeline, test database).
