@@ -379,6 +379,21 @@ public class VehicleServiceTests
     }
 
     [Fact]
+    public async Task DeleteAsync_VehicleWithReservations_ReturnsValidationErrorAndDeletesNothing()
+    {
+        // Arrange
+        _repository.Setup(r => r.GetByIdAsync(9, It.IsAny<CancellationToken>())).ReturnsAsync(ExistingVehicle(9));
+        _repository.Setup(r => r.HasReservationsAsync(9, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        // Act
+        var result = await _service.DeleteAsync(9);
+
+        // Assert
+        Assert.Equal(ServiceErrorType.Validation, result.ErrorType);
+        _repository.Verify(r => r.DeleteAsync(It.IsAny<Vehicle>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task DeleteAsync_NonExistentId_ReturnsNotFoundAndDeletesNothing()
     {
         // Arrange

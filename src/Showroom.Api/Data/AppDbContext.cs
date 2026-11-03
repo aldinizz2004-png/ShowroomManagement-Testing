@@ -12,9 +12,40 @@ public class AppDbContext : DbContext
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Reservation> Reservations => Set<Reservation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Reservation>(entity =>
+        {
+            entity.ToTable("Reservations");
+
+            entity.Property(r => r.Status)
+                  .HasConversion<string>()
+                  .HasMaxLength(20)
+                  .IsRequired();
+
+            entity.Property(r => r.ReservationDate)
+                  .HasConversion(v => v, v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+            entity.HasOne(r => r.Customer)
+                  .WithMany()
+                  .HasForeignKey(r => r.CustomerId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.Vehicle)
+                  .WithMany()
+                  .HasForeignKey(r => r.VehicleId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(r => r.VehicleId)
+                  .IsUnique()
+                  .HasFilter("[Status] = 'Active'")
+                  .HasDatabaseName("IX_Reservations_OneActivePerVehicle");
+
+            entity.HasIndex(r => new { r.CustomerId, r.Status });
+        });
+
         modelBuilder.Entity<Customer>(entity =>
         {
             entity.ToTable("Customers");

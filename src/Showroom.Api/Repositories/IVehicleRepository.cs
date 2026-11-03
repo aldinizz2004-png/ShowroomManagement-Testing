@@ -10,4 +10,5 @@ public interface IVehicleRepository
     Task AddAsync(Vehicle vehicle, CancellationToken ct = default);
     Task UpdateAsync(Vehicle vehicle, CancellationToken ct = default);
     Task DeleteAsync(Vehicle vehicle, CancellationToken ct = default);
+    Task<bool> HasReservationsAsync(int vehicleId, CancellationToken ct = default);
 }

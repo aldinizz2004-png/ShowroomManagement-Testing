@@ -85,6 +85,27 @@ public class ShowroomApiFactory : WebApplicationFactory<Program>
         return client;
     }
 
+    public async Task<(HttpClient Client, int CustomerId)> CreateClientForNewCustomerAsync()
+    {
+        var email = $"buyer-{Guid.NewGuid():N}@test.local";
+        using var anonymous = CreateClient();
+
+        var register = await anonymous.PostAsJsonAsync("/api/auth/register",
+            new RegisterRequest { FullName = "Test Buyer", Email = email, Password = Password, Phone = "0599 123123" });
+        register.EnsureSuccessStatusCode();
+
+        var login = await anonymous.PostAsJsonAsync("/api/auth/login", new LoginRequest { Email = email, Password = Password });
+        login.EnsureSuccessStatusCode();
+        var token = (await login.Content.ReadFromJsonAsync<AuthResponse>(TestJson.Options))!.Token;
+
+        var admin = await CreateClientForRoleAsync(Roles.Admin);
+        var profiles = await admin.GetFromJsonAsync<List<CustomerResponse>>($"/api/customers?search={email}", TestJson.Options);
+
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return (client, profiles!.Single().Id);
+    }
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);

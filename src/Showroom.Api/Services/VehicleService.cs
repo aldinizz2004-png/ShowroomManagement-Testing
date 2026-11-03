@@ -96,6 +96,9 @@ public class VehicleService : IVehicleService
         if (vehicle is null)
             return ServiceResult<bool>.NotFound($"No vehicle exists with id {id}.");
 
+        if (await _repository.HasReservationsAsync(id, ct))
+            return ServiceResult<bool>.Invalid("id", "This vehicle has reservations and cannot be deleted. Mark it as Sold instead.");
+
         await _repository.DeleteAsync(vehicle, ct);
         return ServiceResult<bool>.Ok(true);
     }

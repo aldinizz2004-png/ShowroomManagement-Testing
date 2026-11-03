@@ -53,4 +53,7 @@ public class VehicleRepository : IVehicleRepository
         _db.Vehicles.Remove(vehicle);
         await _db.SaveChangesAsync(ct);
     }
+
+    public Task<bool> HasReservationsAsync(int vehicleId, CancellationToken ct = default) =>
+        _db.Reservations.AnyAsync(r => r.VehicleId == vehicleId, ct);
 }
