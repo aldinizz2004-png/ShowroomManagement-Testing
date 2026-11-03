@@ -16,12 +16,14 @@ public interface IAuthService
 public class AuthService : IAuthService
 {
     private readonly IUserRepository _users;
+    private readonly ICustomerRepository _customers;
     private readonly IPasswordHasher<User> _hasher;
     private readonly ITokenService _tokens;
 
-    public AuthService(IUserRepository users, IPasswordHasher<User> hasher, ITokenService tokens)
+    public AuthService(IUserRepository users, ICustomerRepository customers, IPasswordHasher<User> hasher, ITokenService tokens)
     {
         _users = users;
+        _customers = customers;
         _hasher = hasher;
         _tokens = tokens;
     }
@@ -42,7 +44,24 @@ public class AuthService : IAuthService
         };
         user.PasswordHash = _hasher.HashPassword(user, request.Password!);
 
-        await _users.AddAsync(user, ct);
+        var existingProfile = await _customers.GetByEmailAsync(email, ct);
+        if (existingProfile is not null && existingProfile.UserId is null)
+        {
+            existingProfile.User = user;
+            await _customers.UpdateAsync(existingProfile, ct);
+        }
+        else
+        {
+            user.Customer = new Customer
+            {
+                FullName = user.FullName,
+                Email = email,
+                Phone = request.Phone!.Trim(),
+                CreatedAt = user.CreatedAt
+            };
+            await _users.AddAsync(user, ct);
+        }
+
         return ServiceResult<UserResponse>.Ok(ToResponse(user));
     }
 

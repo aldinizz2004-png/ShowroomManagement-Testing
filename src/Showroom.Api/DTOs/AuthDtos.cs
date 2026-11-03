@@ -12,6 +12,9 @@ public class RegisterRequest
 
     [Required, StringLength(100, MinimumLength = 8)]
     public string? Password { get; set; }
+
+    [Required, RegularExpression(@"^\+?[0-9 ]{7,20}$", ErrorMessage = "Phone must contain 7 to 20 digits, optionally starting with +.")]
+    public string? Phone { get; set; }
 }
 
 public class LoginRequest
