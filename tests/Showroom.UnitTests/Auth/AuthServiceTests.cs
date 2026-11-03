@@ -12,6 +12,7 @@ namespace Showroom.UnitTests.Auth;
 public class AuthServiceTests
 {
     private readonly Mock<IUserRepository> _users = new();
+    private readonly Mock<ICustomerRepository> _customers = new();
     private readonly Mock<ITokenService> _tokens = new();
     private readonly PasswordHasher<User> _hasher = new();
     private readonly AuthService _service;
@@ -20,7 +21,7 @@ public class AuthServiceTests
     {
         _tokens.Setup(t => t.CreateToken(It.IsAny<User>()))
                .Returns(("fake.jwt.token", new DateTime(2030, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
-        _service = new AuthService(_users.Object, _hasher, _tokens.Object);
+        _service = new AuthService(_users.Object, _customers.Object, _hasher, _tokens.Object);
     }
 
     private User StoredUser(string email, string password, string role = Roles.Customer)
@@ -103,7 +104,7 @@ public class AuthServiceTests
         // Act
         var result = await _service.RegisterAsync(new RegisterRequest
         {
-            FullName = " Ahmad Khalil ", Email = "New@Test.com", Password = "Strong@123"
+            FullName = " Ahmad Khalil ", Email = "New@Test.com", Password = "Strong@123", Phone = "+970 599 123456"
         });
 
         // Assert
@@ -114,6 +115,31 @@ public class AuthServiceTests
         Assert.NotEqual("Strong@123", saved.PasswordHash);
         Assert.Equal(PasswordVerificationResult.Success,
                      _hasher.VerifyHashedPassword(saved, saved.PasswordHash, "Strong@123"));
+        Assert.NotNull(saved.Customer);
+        Assert.Equal("new@test.com", saved.Customer!.Email);
+        Assert.Equal("+970 599 123456", saved.Customer.Phone);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_EmailOfWalkInCustomer_LinksExistingProfileInsteadOfCreatingNew()
+    {
+        // Arrange
+        var walkIn = new Customer { Id = 5, FullName = "Walk In", Email = "walkin@test.com", Phone = "0599000000" };
+        _users.Setup(u => u.EmailExistsAsync("walkin@test.com", It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _customers.Setup(c => c.GetByEmailAsync("walkin@test.com", It.IsAny<CancellationToken>())).ReturnsAsync(walkIn);
+
+        // Act
+        var result = await _service.RegisterAsync(new RegisterRequest
+        {
+            FullName = "Walk In", Email = "walkin@test.com", Password = "Strong@123", Phone = "0599000000"
+        });
+
+        // Assert
+        Assert.True(result.Succeeded);
+        Assert.NotNull(walkIn.User);
+        Assert.Equal(Roles.Customer, walkIn.User!.Role);
+        _customers.Verify(c => c.UpdateAsync(walkIn, It.IsAny<CancellationToken>()), Times.Once);
+        _users.Verify(u => u.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -125,7 +151,7 @@ public class AuthServiceTests
         // Act
         var result = await _service.RegisterAsync(new RegisterRequest
         {
-            FullName = "Someone", Email = "taken@test.com", Password = "Strong@123"
+            FullName = "Someone", Email = "taken@test.com", Password = "Strong@123", Phone = "0599111111"
         });
 
         // Assert

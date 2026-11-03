@@ -61,7 +61,7 @@ public class AuthApiTests : IClassFixture<ShowroomApiFactory>
 
         // Act
         var register = await _client.PostAsJsonAsync("/api/auth/register",
-            new RegisterRequest { FullName = "New Buyer", Email = email, Password = "Buyer@12345" });
+            new RegisterRequest { FullName = "New Buyer", Email = email, Password = "Buyer@12345", Phone = "+970 599 222333" });
         var login = await _client.PostAsJsonAsync("/api/auth/login",
             new LoginRequest { Email = email, Password = "Buyer@12345" });
         var token = (await login.ReadAsync<AuthResponse>()).Token;
@@ -80,7 +80,7 @@ public class AuthApiTests : IClassFixture<ShowroomApiFactory>
     public async Task Register_DuplicateEmail_Returns400()
     {
         var response = await _client.PostAsJsonAsync("/api/auth/register",
-            new RegisterRequest { FullName = "Copy", Email = ShowroomApiFactory.Emails[Roles.Customer], Password = "Copy@12345" });
+            new RegisterRequest { FullName = "Copy", Email = ShowroomApiFactory.Emails[Roles.Customer], Password = "Copy@12345", Phone = "0599333444" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("email", (await response.ReadProblemAsync()).Errors.Keys);

@@ -45,6 +45,17 @@ public class AuthorizationPolicyTests
         Assert.Equal(expected, result.Succeeded);
     }
 
+    [Theory]
+    [InlineData(Roles.Admin, true)]
+    [InlineData(Roles.SalesRep, true)]
+    [InlineData(Roles.Customer, false)]
+    public async Task ManageCustomers_AllowsAdminAndSalesRepOnly(string role, bool expected)
+    {
+        var result = await _authorization.AuthorizeAsync(UserWithRole(role), Policies.ManageCustomers);
+
+        Assert.Equal(expected, result.Succeeded);
+    }
+
     [Fact]
     public async Task FallbackPolicy_RejectsAnonymousUser()
     {
