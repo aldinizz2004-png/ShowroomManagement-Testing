@@ -189,9 +189,11 @@ namespace Showroom.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AvailabilityStatus");
+                    b.HasIndex("AvailabilityStatus", "Price")
+                        .HasDatabaseName("IX_Vehicles_Status_Price");
 
-                    b.HasIndex("Brand", "Model");
+                    b.HasIndex("Brand", "AvailabilityStatus", "Price")
+                        .HasDatabaseName("IX_Vehicles_Brand_Status_Price");
 
                     b.ToTable("Vehicles", null, t =>
                         {

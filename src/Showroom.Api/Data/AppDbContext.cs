@@ -109,8 +109,11 @@ public class AppDbContext : DbContext
             entity.Property(v => v.CreatedAt)
                   .HasConversion(v => v, v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
 
-            entity.HasIndex(v => new { v.Brand, v.Model });
-            entity.HasIndex(v => v.AvailabilityStatus);
+            entity.HasIndex(v => new { v.Brand, v.AvailabilityStatus, v.Price })
+                  .HasDatabaseName("IX_Vehicles_Brand_Status_Price");
+
+            entity.HasIndex(v => new { v.AvailabilityStatus, v.Price })
+                  .HasDatabaseName("IX_Vehicles_Status_Price");
         });
     }
 }
