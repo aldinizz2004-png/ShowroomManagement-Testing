@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Showroom.Api.Data;
-using Showroom.Api.DTOs;
 using Showroom.Api.Models;
 
 namespace Showroom.Api.Repositories;
@@ -17,24 +16,71 @@ public class VehicleRepository : IVehicleRepository
     public Task<Vehicle?> GetByIdAsync(int id, CancellationToken ct = default) =>
         _db.Vehicles.FirstOrDefaultAsync(v => v.Id == id, ct);
 
-    public Task<List<Vehicle>> GetAllAsync(VehicleQuery filter, CancellationToken ct = default)
+    public async Task<(IReadOnlyList<Vehicle> Items, int TotalCount)> SearchAsync(VehicleSearch search, CancellationToken ct = default)
     {
-        IQueryable<Vehicle> query = _db.Vehicles.AsNoTracking();
+        var query = ApplyFilters(_db.Vehicles.AsNoTracking(), search);
 
-        if (filter.Brand is { } brand)
+        var totalCount = await query.CountAsync(ct);
+        if (totalCount == 0)
+            return ([], 0);
+
+        var items = await ApplySorting(query, search)
+            .Skip((search.Page - 1) * search.PageSize)
+            .Take(search.PageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
+
+    private static IQueryable<Vehicle> ApplyFilters(IQueryable<Vehicle> query, VehicleSearch search)
+    {
+        if (search.Brand is { } brand)
             query = query.Where(v => v.Brand == brand);
 
-        if (!string.IsNullOrWhiteSpace(filter.Model))
+        if (search.Model is { } model)
         {
-            var pattern = $"%{filter.Model.Trim()}%";
-            query = query.Where(v => EF.Functions.Like(v.Model, pattern));
+            var pattern = $"%{EscapeLike(model)}%";
+            query = query.Where(v => EF.Functions.Like(v.Model, pattern, LikeEscape));
         }
 
-        if (filter.Status is { } status)
+        if (search.Year is { } year)
+            query = query.Where(v => v.ManufacturingYear == year);
+
+        if (search.MinPrice is { } minPrice)
+            query = query.Where(v => v.Price >= minPrice);
+
+        if (search.MaxPrice is { } maxPrice)
+            query = query.Where(v => v.Price <= maxPrice);
+
+        if (search.Color is { } color)
+        {
+            var pattern = EscapeLike(color);
+            query = query.Where(v => EF.Functions.Like(v.Color, pattern, LikeEscape));
+        }
+
+        if (search.Status is { } status)
             query = query.Where(v => v.AvailabilityStatus == status);
 
-        return query.OrderBy(v => v.Id).ToListAsync(ct);
+        return query;
     }
+
+    private static IQueryable<Vehicle> ApplySorting(IQueryable<Vehicle> query, VehicleSearch search) =>
+        (search.SortBy, search.Descending) switch
+        {
+            (VehicleSortField.Price, false) => query.OrderBy(v => v.Price).ThenBy(v => v.Id),
+            (VehicleSortField.Price, true) => query.OrderByDescending(v => v.Price).ThenBy(v => v.Id),
+            (VehicleSortField.Model, false) => query.OrderBy(v => v.Model).ThenBy(v => v.Id),
+            (VehicleSortField.Model, true) => query.OrderByDescending(v => v.Model).ThenBy(v => v.Id),
+            (VehicleSortField.ManufacturingYear, false) => query.OrderBy(v => v.ManufacturingYear).ThenBy(v => v.Id),
+            (VehicleSortField.ManufacturingYear, true) => query.OrderByDescending(v => v.ManufacturingYear).ThenBy(v => v.Id),
+            (_, true) => query.OrderByDescending(v => v.Id),
+            _ => query.OrderBy(v => v.Id)
+        };
+
+    private const string LikeEscape = "\\";
+
+    private static string EscapeLike(string value) =>
+        value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_").Replace("[", "\\[");
 
     public async Task AddAsync(Vehicle vehicle, CancellationToken ct = default)
     {

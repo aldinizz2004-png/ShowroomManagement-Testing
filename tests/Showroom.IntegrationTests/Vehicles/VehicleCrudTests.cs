@@ -123,7 +123,7 @@ public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var list = await response.ReadAsync<List<VehicleResponse>>();
+        var list = await response.ReadVehicleItemsAsync();
         var only = Assert.Single(list);
         Assert.Equal($"C5 X {tag}", only.Model);
     }
@@ -138,7 +138,7 @@ public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
         await client.PatchAsJsonAsync($"/api/vehicles/{sold.Id}/status",
             new UpdateVehicleStatusRequest { Status = AvailabilityStatus.Sold }, Options);
 
-        var list = await (await client.GetAsync($"/api/vehicles?model={tag}&status=Available")).ReadAsync<List<VehicleResponse>>();
+        var list = await (await client.GetAsync($"/api/vehicles?model={tag}&status=Available")).ReadVehicleItemsAsync();
 
         Assert.Equal(available.Id, Assert.Single(list).Id);
     }
@@ -151,7 +151,7 @@ public class VehicleCrudTests : IClassFixture<ShowroomApiFactory>
         var response = await client.GetAsync($"/api/vehicles?model=does-not-exist-{Guid.NewGuid():N}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Empty(await response.ReadAsync<List<VehicleResponse>>());
+        Assert.Empty(await response.ReadVehicleItemsAsync());
     }
 
     [Fact]

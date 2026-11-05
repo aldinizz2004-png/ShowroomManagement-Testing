@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
+using Showroom.Api.Common;
 using Showroom.Api.DTOs;
 using Showroom.Api.Models;
 
@@ -36,6 +37,12 @@ public static class TestJson
 
     public static async Task<T> ReadAsync<T>(this HttpResponseMessage response) =>
         (await response.Content.ReadFromJsonAsync<T>(Options))!;
+
+    public static Task<PagedResult<VehicleResponse>> ReadVehiclePageAsync(this HttpResponseMessage response) =>
+        response.ReadAsync<PagedResult<VehicleResponse>>();
+
+    public static async Task<IReadOnlyList<VehicleResponse>> ReadVehicleItemsAsync(this HttpResponseMessage response) =>
+        (await response.ReadVehiclePageAsync()).Items;
 
     public static Task<ValidationProblemDetails> ReadProblemAsync(this HttpResponseMessage response) =>
         response.ReadAsync<ValidationProblemDetails>();

@@ -231,16 +231,19 @@ public class VehicleServiceTests
     {
         // Arrange
         var filter = new VehicleQuery { Brand = Brand.JAECOO, Model = "J7", Status = AvailabilityStatus.Available };
-        _repository.Setup(r => r.GetAllAsync(filter, It.IsAny<CancellationToken>()))
-                   .ReturnsAsync([ExistingVehicle(1), ExistingVehicle(2)]);
+        _repository.Setup(r => r.SearchAsync(It.IsAny<VehicleSearch>(), It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(([ExistingVehicle(1), ExistingVehicle(2)], 2));
 
         // Act
         var result = await _service.GetAllAsync(filter);
 
         // Assert
-        Assert.Equal(2, result.Count);
-        Assert.All(result, v => Assert.Equal(Brand.JAECOO, v.Brand));
-        _repository.Verify(r => r.GetAllAsync(filter, It.IsAny<CancellationToken>()), Times.Once);
+        Assert.True(result.Succeeded);
+        Assert.Equal(2, result.Value!.Items.Count);
+        Assert.All(result.Value.Items, v => Assert.Equal(Brand.JAECOO, v.Brand));
+        _repository.Verify(r => r.SearchAsync(
+            It.Is<VehicleSearch>(s => s.Brand == Brand.JAECOO && s.Model == "J7" && s.Status == AvailabilityStatus.Available),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -248,14 +251,16 @@ public class VehicleServiceTests
     {
         // Arrange
         var filter = new VehicleQuery { Brand = Brand.OMODA, Model = "Unknown", Status = AvailabilityStatus.Available };
-        _repository.Setup(r => r.GetAllAsync(filter, It.IsAny<CancellationToken>()))
-                   .ReturnsAsync([]);
+        _repository.Setup(r => r.SearchAsync(It.IsAny<VehicleSearch>(), It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(([], 0));
 
         // Act
         var result = await _service.GetAllAsync(filter);
 
         // Assert
-        Assert.Empty(result);
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Value!.Items);
+        Assert.Equal(0, result.Value.TotalCount);
     }
 
     [Fact]
