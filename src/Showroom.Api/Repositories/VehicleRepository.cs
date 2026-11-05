@@ -16,21 +16,25 @@ public class VehicleRepository : IVehicleRepository
     public Task<Vehicle?> GetByIdAsync(int id, CancellationToken ct = default) =>
         _db.Vehicles.FirstOrDefaultAsync(v => v.Id == id, ct);
 
+    public const string SearchTag = "Vehicle search";
+
     public async Task<(IReadOnlyList<Vehicle> Items, int TotalCount)> SearchAsync(VehicleSearch search, CancellationToken ct = default)
     {
-        var query = ApplyFilters(_db.Vehicles.AsNoTracking(), search);
-
-        var totalCount = await query.CountAsync(ct);
+        var totalCount = await FilterQuery(search).CountAsync(ct);
         if (totalCount == 0)
             return ([], 0);
 
-        var items = await ApplySorting(query, search)
-            .Skip((search.Page - 1) * search.PageSize)
-            .Take(search.PageSize)
-            .ToListAsync(ct);
-
+        var items = await PageQuery(search).ToListAsync(ct);
         return (items, totalCount);
     }
+
+    public IQueryable<Vehicle> FilterQuery(VehicleSearch search) =>
+        ApplyFilters(_db.Vehicles.AsNoTracking().TagWith(SearchTag), search);
+
+    public IQueryable<Vehicle> PageQuery(VehicleSearch search) =>
+        ApplySorting(FilterQuery(search), search)
+            .Skip((search.Page - 1) * search.PageSize)
+            .Take(search.PageSize);
 
     private static IQueryable<Vehicle> ApplyFilters(IQueryable<Vehicle> query, VehicleSearch search)
     {
