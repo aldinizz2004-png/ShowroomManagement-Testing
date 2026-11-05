@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Showroom.Api.Data;
 using Showroom.Api.Models;
 using Showroom.Api.Repositories;
@@ -91,5 +93,15 @@ public class VehicleQuerySqlTests : IDisposable
             .Single(i => i.GetDatabaseName() == name);
 
         Assert.Equal(columns, index.Properties.Select(p => p.Name));
+    }
+
+    [Fact]
+    public void BrandIndex_IncludesManufacturingYear_SoCountQueriesAvoidKeyLookups()
+    {
+        var model = _db.GetService<IDesignTimeModel>().Model;
+        var index = model.FindEntityType(typeof(Vehicle))!.GetIndexes()
+            .Single(i => i.GetDatabaseName() == "IX_Vehicles_Brand_Status_Price");
+
+        Assert.Equal(["ManufacturingYear"], index.GetIncludeProperties()!);
     }
 }

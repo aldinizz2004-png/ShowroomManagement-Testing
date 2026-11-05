@@ -195,6 +195,8 @@ namespace Showroom.Api.Migrations
                     b.HasIndex("Brand", "AvailabilityStatus", "Price")
                         .HasDatabaseName("IX_Vehicles_Brand_Status_Price");
 
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Brand", "AvailabilityStatus", "Price"), new[] { "ManufacturingYear" });
+
                     b.ToTable("Vehicles", null, t =>
                         {
                             t.HasCheckConstraint("CK_Vehicles_Mileage_NonNegative", "[Mileage] >= 0");
