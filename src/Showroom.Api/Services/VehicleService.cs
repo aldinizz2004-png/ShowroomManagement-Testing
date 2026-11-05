@@ -1,3 +1,4 @@
+using Showroom.Api.Caching;
 using Showroom.Api.Common;
 using Showroom.Api.DTOs;
 using Showroom.Api.Models;
@@ -8,10 +9,12 @@ namespace Showroom.Api.Services;
 public class VehicleService : IVehicleService
 {
     private readonly IVehicleRepository _repository;
+    private readonly IVehicleCache _cache;
 
-    public VehicleService(IVehicleRepository repository)
+    public VehicleService(IVehicleRepository repository, IVehicleCache cache)
     {
         _repository = repository;
+        _cache = cache;
     }
 
     public async Task<ServiceResult<PagedResult<VehicleResponse>>> GetAllAsync(VehicleQuery query, CancellationToken ct = default)
@@ -21,23 +24,32 @@ public class VehicleService : IVehicleService
             return ServiceResult<PagedResult<VehicleResponse>>.Invalid(errors);
 
         var search = VehicleQueryValidator.ToSearch(query);
-        var (vehicles, totalCount) = await _repository.SearchAsync(search, ct);
-
-        return ServiceResult<PagedResult<VehicleResponse>>.Ok(new PagedResult<VehicleResponse>
+        var page = await _cache.GetListAsync(search, async () =>
         {
-            Items = vehicles.Select(ToResponse).ToList(),
-            Page = search.Page,
-            PageSize = search.PageSize,
-            TotalCount = totalCount
+            var (vehicles, totalCount) = await _repository.SearchAsync(search, ct);
+            return new PagedResult<VehicleResponse>
+            {
+                Items = vehicles.Select(ToResponse).ToList(),
+                Page = search.Page,
+                PageSize = search.PageSize,
+                TotalCount = totalCount
+            };
         });
+
+        return ServiceResult<PagedResult<VehicleResponse>>.Ok(page);
     }
 
     public async Task<ServiceResult<VehicleResponse>> GetByIdAsync(int id, CancellationToken ct = default)
     {
-        var vehicle = await _repository.GetByIdAsync(id, ct);
+        var vehicle = await _cache.GetDetailAsync(id, async () =>
+        {
+            var entity = await _repository.GetByIdAsync(id, ct);
+            return entity is null ? null : ToResponse(entity);
+        });
+
         return vehicle is null
             ? NotFound(id)
-            : ServiceResult<VehicleResponse>.Ok(ToResponse(vehicle));
+            : ServiceResult<VehicleResponse>.Ok(vehicle);
     }
 
     public async Task<ServiceResult<VehicleResponse>> CreateAsync(CreateVehicleRequest request, CancellationToken ct = default)
@@ -60,6 +72,7 @@ public class VehicleService : IVehicleService
         };
 
         await _repository.AddAsync(vehicle, ct);
+        _cache.InvalidateLists();
         return ServiceResult<VehicleResponse>.Ok(ToResponse(vehicle));
     }
 
@@ -82,6 +95,7 @@ public class VehicleService : IVehicleService
         vehicle.Mileage = request.Mileage!.Value;
 
         await _repository.UpdateAsync(vehicle, ct);
+        _cache.InvalidateVehicle(id);
         return ServiceResult<VehicleResponse>.Ok(ToResponse(vehicle));
     }
 
@@ -99,6 +113,7 @@ public class VehicleService : IVehicleService
 
         vehicle.AvailabilityStatus = request.Status.Value;
         await _repository.UpdateAsync(vehicle, ct);
+        _cache.InvalidateVehicle(id);
         return ServiceResult<VehicleResponse>.Ok(ToResponse(vehicle));
     }
 
@@ -112,6 +127,7 @@ public class VehicleService : IVehicleService
             return ServiceResult<bool>.Invalid("id", "This vehicle has reservations and cannot be deleted. Mark it as Sold instead.");
 
         await _repository.DeleteAsync(vehicle, ct);
+        _cache.InvalidateVehicle(id);
         return ServiceResult<bool>.Ok(true);
     }
 

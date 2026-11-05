@@ -1,4 +1,5 @@
 using Moq;
+using Showroom.Api.Caching;
 using Showroom.Api.Common;
 using Showroom.Api.DTOs;
 using Showroom.Api.Models;
@@ -11,11 +12,12 @@ namespace Showroom.UnitTests.Vehicles;
 public class VehicleServiceTests
 {
     private readonly Mock<IVehicleRepository> _repository = new();
+    private readonly Mock<IVehicleCache> _cache = PassThroughCache();
     private readonly VehicleService _service;
 
     public VehicleServiceTests()
     {
-        _service = new VehicleService(_repository.Object);
+        _service = new VehicleService(_repository.Object, _cache.Object);
     }
 
     [Fact]

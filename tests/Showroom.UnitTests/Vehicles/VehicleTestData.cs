@@ -1,10 +1,24 @@
+using Moq;
+using Showroom.Api.Caching;
+using Showroom.Api.Common;
 using Showroom.Api.DTOs;
 using Showroom.Api.Models;
+using Showroom.Api.Repositories;
 
 namespace Showroom.UnitTests.Vehicles;
 
 internal static class VehicleTestData
 {
+    public static Mock<IVehicleCache> PassThroughCache()
+    {
+        var cache = new Mock<IVehicleCache>();
+        cache.Setup(c => c.GetListAsync(It.IsAny<VehicleSearch>(), It.IsAny<Func<Task<PagedResult<VehicleResponse>>>>()))
+             .Returns((VehicleSearch _, Func<Task<PagedResult<VehicleResponse>>> load) => load());
+        cache.Setup(c => c.GetDetailAsync(It.IsAny<int>(), It.IsAny<Func<Task<VehicleResponse?>>>()))
+             .Returns((int _, Func<Task<VehicleResponse?>> load) => load());
+        return cache;
+    }
+
     public static CreateVehicleRequest ValidCreateRequest() => new()
     {
         Brand = Brand.Chery,
