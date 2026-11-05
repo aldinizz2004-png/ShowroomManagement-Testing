@@ -5,7 +5,7 @@ namespace Showroom.Api.Services;
 
 public interface IVehicleService
 {
-    Task<IReadOnlyList<VehicleResponse>> GetAllAsync(VehicleQuery filter, CancellationToken ct = default);
+    Task<ServiceResult<PagedResult<VehicleResponse>>> GetAllAsync(VehicleQuery query, CancellationToken ct = default);
     Task<ServiceResult<VehicleResponse>> GetByIdAsync(int id, CancellationToken ct = default);
     Task<ServiceResult<VehicleResponse>> CreateAsync(CreateVehicleRequest request, CancellationToken ct = default);
     Task<ServiceResult<VehicleResponse>> UpdateAsync(int id, UpdateVehicleRequest request, CancellationToken ct = default);

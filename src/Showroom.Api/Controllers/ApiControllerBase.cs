@@ -23,6 +23,7 @@ public abstract class ApiControllerBase : ControllerBase
                 return Problem(statusCode: StatusCodes.Status403Forbidden, title: "Forbidden", detail: message);
         }
 
+        ModelState.Clear();
         foreach (var (field, messages) in result.Errors)
             foreach (var m in messages)
                 ModelState.AddModelError(field, m);

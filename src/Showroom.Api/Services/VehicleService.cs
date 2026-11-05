@@ -14,10 +14,22 @@ public class VehicleService : IVehicleService
         _repository = repository;
     }
 
-    public async Task<IReadOnlyList<VehicleResponse>> GetAllAsync(VehicleQuery filter, CancellationToken ct = default)
+    public async Task<ServiceResult<PagedResult<VehicleResponse>>> GetAllAsync(VehicleQuery query, CancellationToken ct = default)
     {
-        var vehicles = await _repository.GetAllAsync(filter, ct);
-        return vehicles.Select(ToResponse).ToList();
+        var errors = VehicleQueryValidator.Validate(query);
+        if (errors.Count > 0)
+            return ServiceResult<PagedResult<VehicleResponse>>.Invalid(errors);
+
+        var search = VehicleQueryValidator.ToSearch(query);
+        var (vehicles, totalCount) = await _repository.SearchAsync(search, ct);
+
+        return ServiceResult<PagedResult<VehicleResponse>>.Ok(new PagedResult<VehicleResponse>
+        {
+            Items = vehicles.Select(ToResponse).ToList(),
+            Page = search.Page,
+            PageSize = search.PageSize,
+            TotalCount = totalCount
+        });
     }
 
     public async Task<ServiceResult<VehicleResponse>> GetByIdAsync(int id, CancellationToken ct = default)

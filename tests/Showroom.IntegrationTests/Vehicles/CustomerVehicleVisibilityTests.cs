@@ -36,7 +36,7 @@ public class CustomerVehicleVisibilityTests : IClassFixture<ShowroomApiFactory>
         var customer = await _factory.CreateClientForRoleAsync(Roles.Customer);
 
         // Act
-        var list = await (await customer.GetAsync($"/api/vehicles?model={tag}")).ReadAsync<List<VehicleResponse>>();
+        var list = await (await customer.GetAsync($"/api/vehicles?model={tag}")).ReadVehicleItemsAsync();
 
         // Assert
         Assert.Equal(available.Id, Assert.Single(list).Id);
@@ -48,7 +48,7 @@ public class CustomerVehicleVisibilityTests : IClassFixture<ShowroomApiFactory>
         var (_, _, tag) = await CreateAvailableAndSoldAsync();
         var customer = await _factory.CreateClientForRoleAsync(Roles.Customer);
 
-        var list = await (await customer.GetAsync($"/api/vehicles?model={tag}&status=Sold")).ReadAsync<List<VehicleResponse>>();
+        var list = await (await customer.GetAsync($"/api/vehicles?model={tag}&status=Sold")).ReadVehicleItemsAsync();
 
         Assert.All(list, v => Assert.Equal(AvailabilityStatus.Available, v.AvailabilityStatus));
     }
@@ -70,7 +70,7 @@ public class CustomerVehicleVisibilityTests : IClassFixture<ShowroomApiFactory>
         var (_, _, tag) = await CreateAvailableAndSoldAsync();
         var sales = await _factory.CreateClientForRoleAsync(Roles.SalesRep);
 
-        var list = await (await sales.GetAsync($"/api/vehicles?model={tag}")).ReadAsync<List<VehicleResponse>>();
+        var list = await (await sales.GetAsync($"/api/vehicles?model={tag}")).ReadVehicleItemsAsync();
 
         Assert.Equal(2, list.Count);
     }

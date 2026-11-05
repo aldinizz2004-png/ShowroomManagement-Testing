@@ -23,14 +23,14 @@ public class VehiclesController : ApiControllerBase
     private bool IsCustomer => User.IsInRole(Roles.Customer);
 
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<VehicleResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResult<VehicleResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<IReadOnlyList<VehicleResponse>>> GetAll([FromQuery] VehicleQuery query, CancellationToken ct)
+    public async Task<ActionResult<PagedResult<VehicleResponse>>> GetAll([FromQuery] VehicleQuery query, CancellationToken ct)
     {
         if (IsCustomer)
             query.Status = AvailabilityStatus.Available;
 
-        return Ok(await _service.GetAllAsync(query, ct));
+        return FromResult(await _service.GetAllAsync(query, ct), NotFoundTitle);
     }
 
     [HttpGet("{id}")]
