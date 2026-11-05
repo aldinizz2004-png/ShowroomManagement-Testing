@@ -1,13 +1,14 @@
-# Showroom Management API: Tasks 1 & 2
+# Showroom Management API: Tasks 1, 2 & 3
 
-ProGineer Backend Practical Assignment · **Izzaldeen** · ASP.NET Core (.NET 10) · EF Core 10 · SQL Server · JWT + roles · xUnit · Moq · WebApplicationFactory · GitHub Actions · Docker
+ProGineer Backend Practical Assignment · **Izzaldeen** · ASP.NET Core (.NET 10) · EF Core 10 · SQL Server · JWT + roles · IMemoryCache · xUnit · Moq · WebApplicationFactory · GitHub Actions · Docker
 
 Backend REST API for a Palestinian automotive showroom selling **Chery, OMODA and JAECOO**.
 
 - **Task 1:** vehicle inventory, unit tests and integration tests.
 - **Task 2:** customer and reservation management, resource-based access control, Git workflow with feature branches and pull requests, and a CI/CD pipeline that tests every change and deploys `main` to a staging environment.
+- **Task 3:** database-level filtering, sorting and pagination, in-memory caching with invalidation, composite indexes, SQL audit and a measured performance review.
 
-**Results:** 190 tests (111 unit + 79 integration), all passing · line coverage 99.4 %, branch coverage 92 % · see [`TEST_COVERAGE.md`](TEST_COVERAGE.md)
+**Results:** 292 tests (164 unit + 128 integration), all passing · line coverage 99.3 %, branch coverage 94.1 % · see [`TEST_COVERAGE.md`](TEST_COVERAGE.md) and [`PERFORMANCE.md`](PERFORMANCE.md)
 
 ---
 
@@ -17,15 +18,18 @@ Backend REST API for a Palestinian automotive showroom selling **Chery, OMODA an
 ShowroomManagement/
 ├── .github/workflows/ci.yml           CI (build + tests) and CD (deploy to staging)
 ├── Dockerfile                         API image (multi-stage, non-root)
+├── PERFORMANCE.md                     latency results, SQL audit, index justification
+├── perf/                              seed, measure and SQL audit scripts
 ├── ShowroomManagement.slnx
 ├── src/Showroom.Api/
 │   ├── Controllers/     Vehicles, Customers, Reservations, Auth (+ ApiControllerBase: result -> HTTP status)
 │   ├── Services/        business rules: VehicleService, CustomerService, ReservationService, AuthService, validators
 │   ├── Repositories/    EF Core data access behind interfaces (mocked in unit tests)
 │   ├── Auth/            Roles, Policies, CurrentUser, JwtOptions, TokenService
+│   ├── Caching/         VehicleCache (IMemoryCache, expiration, invalidation)
 │   ├── Data/            AppDbContext (constraints, indexes, relations), DbInitializer (migrate + seed staff)
 │   ├── DTOs/ Models/ Common/
-│   └── Migrations/      InitialCreate, AddUsers, AddCustomers, AddReservations
+│   └── Migrations/      InitialCreate, AddUsers, AddCustomers, AddReservations, AddVehicleQueryIndexes, IncludeYearInBrandIndex
 ├── tests/Showroom.UnitTests/          xUnit + Moq (services, auth, policies)
 └── tests/Showroom.IntegrationTests/   WebApplicationFactory + SQLite in-memory (all endpoints)
 ```
@@ -50,7 +54,7 @@ Layers: `Controller → Service → IRepository → Repository → DbContext`. S
 ## 3. Modules
 
 ### Vehicles (Task 1)
-Brand (`Chery`, `OMODA`, `JAECOO`), model, manufacturing year (1990 to next year), price in NIS (> 0), color, mileage (≥ 0), availability (`Available`, `Reserved`, `Sold`; a sold vehicle cannot change status). Filters: `brand`, `model` (contains), `status`. A vehicle that has reservations cannot be deleted (400); mark it as sold instead.
+Brand (`Chery`, `OMODA`, `JAECOO`), model, manufacturing year (1990 to next year), price in NIS (> 0), color, mileage (≥ 0), availability (`Available`, `Reserved`, `Sold`; a sold vehicle cannot change status). See [Vehicle search](#vehicle-search-task-3) for filters, sorting and paging. A vehicle that has reservations cannot be deleted (400); mark it as sold instead.
 
 ### Customers (Task 2)
 Full name, email (unique), phone (7 to 20 digits, optional leading `+`), address. A customer profile can be linked to one user account:
@@ -69,13 +73,48 @@ Customer, vehicle, reservation date (UTC, set by the server), expected purchase 
 | Completing a sale (staff, only `Active`) | vehicle becomes `Sold` |
 | One active reservation per vehicle | also enforced by a filtered unique index (`IX_Reservations_OneActivePerVehicle`) |
 
+### Vehicle search (Task 3)
+
+`GET /api/vehicles` builds one SQL query from the parameters that are present. Everything runs in SQL Server; only the requested page is loaded.
+
+| Parameter | Meaning |
+| --- | --- |
+| `brand` | `Chery`, `OMODA` or `JAECOO` |
+| `model` | text contained in the model name |
+| `year` | exact manufacturing year |
+| `minPrice`, `maxPrice` | price range in NIS (inclusive; `minPrice` must not exceed `maxPrice`) |
+| `color` | exact color, case-insensitive |
+| `status` | `Available`, `Reserved`, `Sold` (customers always get `Available`) |
+| `sortBy`, `sortOrder` | `price`, `model` or `year`; `asc` (default) or `desc`. Ties are ordered by id |
+| `page`, `pageSize` | page number from 1; page size 1 to 50 (default 10) |
+
+```http
+GET /api/vehicles?brand=Chery&minPrice=80000&maxPrice=150000&year=2025&page=1&pageSize=10&sortBy=price&sortOrder=asc
+```
+
+```json
+{ "items": [ ... ], "page": 1, "pageSize": 10, "totalCount": 23, "totalPages": 3, "hasPreviousPage": false, "hasNextPage": true }
+```
+
+Invalid values return 400 with the field name, for example `"pageSize": ["Page size must be between 1 and 50."]`.
+
+**Caching:**
+- List and detail responses are cached in `IMemoryCache`. Lists: 1 min sliding / 5 min absolute. Details: 2 min sliding / 10 min absolute. Configured in `VehicleCache` in `appsettings.json`; set `Enabled` to `false` to measure without cache.
+- Any vehicle create, update, status change or delete, and any reservation create, cancel or complete, removes the affected entries immediately.
+
+**Indexes:**
+- `(Brand, AvailabilityStatus, Price) INCLUDE (ManufacturingYear)`
+- `(AvailabilityStatus, Price)`
+
+Measured results and the reasons for these choices are in [`PERFORMANCE.md`](PERFORMANCE.md). With 100,000 vehicles, listing available vehicles by price went from 71 ms (no index, no cache) to 9.6 ms (index) to 0.9 ms (cache).
+
 ## 4. Endpoints
 
 | Method | Route | Success | Errors |
 | --- | --- | --- | --- |
 | POST | `/api/auth/register` | 201 | 400 |
 | POST | `/api/auth/login` | 200 + JWT | 400, 401 |
-| GET | `/api/vehicles?brand=&model=&status=` | 200 | 401 |
+| GET | `/api/vehicles?brand=&model=&year=&minPrice=&maxPrice=&color=&status=&sortBy=&sortOrder=&page=&pageSize=` | 200 (paged) | 400, 401 |
 | GET | `/api/vehicles/{id}` | 200 | 400, 401, 404 |
 | POST | `/api/vehicles` | 201 | 400, 401, 403 |
 | PUT | `/api/vehicles/{id}` | 200 | 400, 401, 403, 404 |
@@ -124,9 +163,9 @@ Development accounts (from `appsettings.Development.json`, development only):
 ## 6. Run the tests
 
 ```bash
-dotnet test                                    # all 190 tests
-dotnet test tests/Showroom.UnitTests           # 111 unit tests
-dotnet test tests/Showroom.IntegrationTests    # 79 integration tests (no SQL Server needed)
+dotnet test                                    # all 292 tests
+dotnet test tests/Showroom.UnitTests           # 164 unit tests
+dotnet test tests/Showroom.IntegrationTests    # 128 integration tests (no SQL Server needed)
 ```
 
 Coverage report:
@@ -137,9 +176,9 @@ dotnet test ShowroomManagement.slnx --collect:"XPlat Code Coverage" --settings c
 dotnet reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"coverage-report" -reporttypes:"Html;TextSummary"
 ```
 
-**Unit tests** (xUnit + Moq, AAA): every service is tested with mocked repositories, including failure cases (invalid data, non-existent ids, unavailable vehicles, invalid dates, other customers' reservations, cancel/complete rules). `ReservationService` receives a `TimeProvider`, so tests fix "today" and check the 0-day and 90-day boundaries. Policies are tested with the real `Policies.AddShowroomPolicies`.
+**Unit tests** (xUnit + Moq, AAA): every service is tested with mocked repositories, including failure cases (invalid data, non-existent ids, unavailable vehicles, invalid dates, other customers' reservations, cancel/complete rules). `ReservationService` receives a `TimeProvider`, so tests fix "today" and check the 0-day and 90-day boundaries. Policies are tested with the real `Policies.AddShowroomPolicies`. Query validation, sort mapping and pagination metadata are unit tested; `VehicleCache` is tested with a real `MemoryCache` for hits, misses, sliding and absolute expiration, invalidation and the invalidation-during-load race.
 
-**Integration tests** (`WebApplicationFactory` + SQLite in-memory): the real API with JWT login per role. Covered: CRUD for vehicles and customers, the full reservation flow (reserve → vehicle Reserved → cancel → Available; complete → Sold), unavailable vehicles, invalid reservations, 401 without token, 403 for wrong role or another customer's reservation, 404, and `/health`.
+**Integration tests** (`WebApplicationFactory` + SQLite in-memory): the real API with JWT login per role. Covered: CRUD for vehicles and customers, the full reservation flow (reserve → vehicle Reserved → cancel → Available; complete → Sold), unavailable vehicles, invalid reservations, 401 without token, 403 for wrong role or another customer's reservation, 404, and `/health`. Task 3 adds single and combined filters, sorting, paging metadata, invalid parameters, responses served from cache (data changed behind the API stays cached), cache cleared after POST / PUT / PATCH / DELETE and reservations, and checks of the generated SQL Server SQL and indexes.
 
 ## 7. Git workflow
 
@@ -152,7 +191,11 @@ dotnet reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetd
 | #2 | `feature/customers` | Customer module, registration linking, customer vehicle visibility |
 | #3 | `feature/reservations` | Reservation module with ownership checks |
 | #4 | `feature/staging-deploy` | `/health`, Dockerfile, deployment to staging |
-| #5, #6 | `docs/readme-task2`, `docs/readme-title` | documentation; simulated merge conflict resolved |
+| #5, #6 | `docs/readme-title`, `docs/readme-task2` | documentation; simulated merge conflict resolved |
+| #8 | `feature/vehicle-filtering` | filtering, sorting and pagination in the database |
+| #9 | `feature/vehicle-caching` | IMemoryCache with expiration and invalidation |
+| #10 | `feature/vehicle-indexes` | composite indexes, SQL tagging and logging |
+| #11 | `feature/performance-review` | index refinement after the SQL audit, perf scripts, PERFORMANCE.md |
 
 ## 8. CI/CD pipeline (`.github/workflows/ci.yml`)
 
@@ -188,3 +231,6 @@ docker run -p 8080:8080 \
 - **Ownership checks in the service** (`CurrentUser`), because "is this reservation yours?" can only be answered after loading the data.
 - **One transaction per change:** creating, cancelling or completing a reservation updates the reservation and the vehicle status in a single `SaveChanges`.
 - **Customer profile separate from the login account**, so staff can register walk-in customers who have no account.
+- **Query composition on `IQueryable`**, so only the requested page leaves the database; `ThenBy(Id)` keeps page order stable.
+- **Cache in front of the service, invalidated by writes**, not only by time, so clients never see a vehicle after it changed.
+- **Indexes chosen from measured query paths**, with equality columns first and the range / sort column last.
