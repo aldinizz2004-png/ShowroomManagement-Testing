@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Showroom.Api.Auth;
+using Showroom.Api.Caching;
 using Showroom.Api.Data;
 using Showroom.Api.Models;
 using Showroom.Api.Repositories;
@@ -29,6 +30,10 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IReservationRepository, ReservationRepository>();
 builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddSingleton(TimeProvider.System);
+
+builder.Services.AddMemoryCache(options => options.SizeLimit = 1024);
+builder.Services.Configure<VehicleCacheOptions>(builder.Configuration.GetSection(VehicleCacheOptions.Section));
+builder.Services.AddSingleton<IVehicleCache, VehicleCache>();
 
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
 
