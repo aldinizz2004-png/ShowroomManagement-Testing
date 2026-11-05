@@ -1,5 +1,6 @@
 using Moq;
 using Showroom.Api.Auth;
+using Showroom.Api.Caching;
 using Showroom.Api.Common;
 using Showroom.Api.DTOs;
 using Showroom.Api.Models;
@@ -21,6 +22,7 @@ public class ReservationServiceTests
     private readonly Mock<IReservationRepository> _reservations = new();
     private readonly Mock<IVehicleRepository> _vehicles = new();
     private readonly Mock<ICustomerRepository> _customers = new();
+    private readonly Mock<IVehicleCache> _vehicleCache = new();
     private readonly ReservationService _service;
 
     private readonly Customer _aliProfile = new() { Id = 100, FullName = "Ali", Email = "ali@test.com", Phone = "0599000001", UserId = 10 };
@@ -31,7 +33,7 @@ public class ReservationServiceTests
         _customers.Setup(c => c.GetByUserIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(_aliProfile);
         _customers.Setup(c => c.GetByUserIdAsync(11, It.IsAny<CancellationToken>())).ReturnsAsync(_monaProfile);
         _customers.Setup(c => c.GetByIdAsync(100, It.IsAny<CancellationToken>())).ReturnsAsync(_aliProfile);
-        _service = new ReservationService(_reservations.Object, _vehicles.Object, _customers.Object, new FixedClock(Now));
+        _service = new ReservationService(_reservations.Object, _vehicles.Object, _customers.Object, new FixedClock(Now), _vehicleCache.Object);
     }
 
     private Vehicle SetupVehicle(int id, AvailabilityStatus status = AvailabilityStatus.Available)
@@ -377,6 +379,49 @@ public class ReservationServiceTests
         var result = await _service.CompleteAsync(7, Admin);
 
         Assert.Contains("status", result.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Success_InvalidatesCachedVehicle()
+    {
+        // Arrange
+        SetupVehicle(5);
+
+        // Act
+        await _service.CreateAsync(Request(vehicleId: 5), Ali);
+
+        // Assert
+        _vehicleCache.Verify(c => c.InvalidateVehicle(5), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_VehicleNotAvailable_DoesNotTouchCache()
+    {
+        SetupVehicle(5, AvailabilityStatus.Sold);
+
+        await _service.CreateAsync(Request(vehicleId: 5), Ali);
+
+        _vehicleCache.Verify(c => c.InvalidateVehicle(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CancelAsync_Success_InvalidatesCachedVehicle()
+    {
+        SetupReservation(7, _aliProfile);
+
+        await _service.CancelAsync(7, Ali);
+
+        _vehicleCache.Verify(c => c.InvalidateVehicle(50), Times.Once);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_Success_InvalidatesCachedVehicle()
+    {
+        SetupReservation(7, _aliProfile);
+
+        await _service.CompleteAsync(7, Sales);
+
+        _vehicleCache.Verify(c => c.InvalidateVehicle(50), Times.Once);
     }
 
     [Fact]

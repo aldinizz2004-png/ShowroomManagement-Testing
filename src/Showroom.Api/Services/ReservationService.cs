@@ -1,4 +1,5 @@
 using Showroom.Api.Auth;
+using Showroom.Api.Caching;
 using Showroom.Api.Common;
 using Showroom.Api.DTOs;
 using Showroom.Api.Models;
@@ -23,17 +24,20 @@ public class ReservationService : IReservationService
     private readonly IVehicleRepository _vehicles;
     private readonly ICustomerRepository _customers;
     private readonly TimeProvider _clock;
+    private readonly IVehicleCache _vehicleCache;
 
     public ReservationService(
         IReservationRepository reservations,
         IVehicleRepository vehicles,
         ICustomerRepository customers,
-        TimeProvider clock)
+        TimeProvider clock,
+        IVehicleCache vehicleCache)
     {
         _reservations = reservations;
         _vehicles = vehicles;
         _customers = customers;
         _clock = clock;
+        _vehicleCache = vehicleCache;
     }
 
     public async Task<IReadOnlyList<ReservationResponse>> GetAllAsync(ReservationQuery query, CurrentUser user, CancellationToken ct = default)
@@ -117,6 +121,7 @@ public class ReservationService : IReservationService
         };
 
         await _reservations.AddAsync(reservation, ct);
+        _vehicleCache.InvalidateVehicle(vehicle.Id);
         return ServiceResult<ReservationResponse>.Ok(ToResponse(reservation));
     }
 
@@ -137,6 +142,7 @@ public class ReservationService : IReservationService
             reservation.Vehicle.AvailabilityStatus = AvailabilityStatus.Available;
 
         await _reservations.UpdateAsync(reservation, ct);
+        _vehicleCache.InvalidateVehicle(reservation.VehicleId);
         return ServiceResult<ReservationResponse>.Ok(ToResponse(reservation));
     }
 
@@ -156,6 +162,7 @@ public class ReservationService : IReservationService
         reservation.Vehicle.AvailabilityStatus = AvailabilityStatus.Sold;
 
         await _reservations.UpdateAsync(reservation, ct);
+        _vehicleCache.InvalidateVehicle(reservation.VehicleId);
         return ServiceResult<ReservationResponse>.Ok(ToResponse(reservation));
     }
 
